@@ -34,11 +34,12 @@ def compute_contribute_sum(value1, value2):
     if value2 is None:
         return value1
 
+def compute_rank(x):
+    rank = (alpha / nodes_number) + (1 - alpha) * x[1]
+    return x[0], rank
 
-def compute_rank(contributes_sum):
-    rank = (alpha / nodes_number) + (1 - alpha) * contributes_sum
-    return rank
-
+def sort_by_rank(node):
+    return -node[1]
 
 # def complete_graph(node):
 #     title = node[0]
@@ -49,9 +50,6 @@ def compute_rank(contributes_sum):
 #     else:
 #         return title, (neighbors, rank)
 
-
-def sort_by_rank(node):
-    return -node[1]
 
 
 if __name__ == "__main__":
@@ -71,12 +69,14 @@ if __name__ == "__main__":
     graph = text.map(map_title)
     nodes_number = graph.count()
     # graph_ranked = graph.map(lambda x: (x[0], (x[1], 1 / nodes_number)))
-    graph_ranked = graph.mapValues(lambda x: ((x[1], 1 / nodes_number)))
+    graph_ranked = graph.mapValues(lambda x: (x, 1 / nodes_number))
+    print(graph_ranked.collect())
     for i in range(iterations):
         contributes = graph_ranked.flatMap(compute_contribute)
-        joined = contributes.join(graph)
-        contribute_sums = joined.reduceByKey(compute_contribute_sum)
-        graph_ranked = contribute_sums.mapValues(compute_rank)
+        contribute_sums = contributes.reduceByKey(compute_contribute_sum)
+        # print(contribute_sums.collect())
+        joined = graph.join(contribute_sums)
+        graph_ranked = joined.mapValues(compute_rank)
         # ranked contiene tutti i nodi, sia del dataset iniziale, sia quelli che comparivano solo come vicini di altri nodi.
         # graph contiene solo i nodi del dataset iniziale.
         # Faccio il join per recuperare la lista di vicini dal dataset iniziale
