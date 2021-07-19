@@ -34,16 +34,14 @@ def compute_contribute(node):
         contributes_list = ([contribute] * len(neighbors))  # We create a list of contributes, one for each neighbor
 
         # We append an additional entry related to the node that we are considering
-        # This is done in order to cop (in the subsequent phases) with nodes that are not pointed by anyone
+        # This is done in order to cope (in the subsequent phases) with nodes that are not pointed by anyone
         contributes_list.append(0)
         neighbors.append(title)
 
-        # If the contribute is None  ...........
-        if contribute is not None:
-            # We use the zip() method to zip together the two RDD.
-            # The resulting RDD has the structure '(title, contribute)'
-            contributes_neighbors = zip(neighbors, contributes_list)
-            return contributes_neighbors
+        # We use the zip() method to zip together the two RDD.
+        # The resulting RDD has the structure '(title, contribute)'
+        contributes_neighbors = zip(neighbors, contributes_list)
+        return contributes_neighbors
 
     # If the node doesn't have any neighbor, we return only the entry related to the node itself
     else:
@@ -115,8 +113,8 @@ if __name__ == "__main__":
     graph = text.map(map_title).cache()
 
     # We count the number of nodes in the graph
-    # We don't apply the count() method directly to the 'text' RDD
-    # because we want to be sure to count the actual number of nodes in the graph
+    # We don't apply the count() method directly to the 'text' RDD because we want to be sure to count the actual number of nodes in the graph. Indeed, if
+    # we count the lines of the 'text' RDD there could be the case in which we consider as page a line without any <title> tag
     nodes_number = graph.count()
 
     # We have to assign the initial rank to each node
