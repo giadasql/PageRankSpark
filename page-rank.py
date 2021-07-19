@@ -35,21 +35,19 @@ def compute_contribute_sum(value1, value2):
         return value1
 
 
-def compute_rank(node):
-    title = node[0]
-    sum = node[1]
-    rank = (alpha / nodes_number) + (1 - alpha) * sum
-    return title, rank
+def compute_rank(contributes_sum):
+    rank = (alpha / nodes_number) + (1 - alpha) * contributes_sum
+    return rank
 
 
-def complete_graph(node):
-    title = node[0]
-    rank = node[1][0]
-    neighbors = node[1][1]
-    if neighbors is None:
-        return title, ([], rank)
-    else:
-        return title, (neighbors, rank)
+# def complete_graph(node):
+#     title = node[0]
+#     rank = node[1][0]
+#     neighbors = node[1][1]
+#     if neighbors is None:
+#         return title, ([], rank)
+#     else:
+#         return title, (neighbors, rank)
 
 
 def sort_by_rank(node):
@@ -69,18 +67,21 @@ if __name__ == "__main__":
         output = "page_rank_spark"
     sc = SparkContext("yarn", "pagerank")
     text = sc.textFile(input)
+    # graph = text.map(map_title).cache()
     graph = text.map(map_title)
     nodes_number = graph.count()
-    graph_ranked = graph.map(lambda x: (x[0], (x[1], 1 / nodes_number)))
+    # graph_ranked = graph.map(lambda x: (x[0], (x[1], 1 / nodes_number)))
+    graph_ranked = graph.mapValues(lambda x: ((x[1], 1 / nodes_number)))
     for i in range(iterations):
         contributes = graph_ranked.flatMap(compute_contribute)
-        contribute_sums = contributes.reduceByKey(compute_contribute_sum)
-        ranked = contribute_sums.map(compute_rank)
+        joined = contributes.join(graph)
+        contribute_sums = joined.reduceByKey(compute_contribute_sum)
+        graph_ranked = contribute_sums.mapValues(compute_rank)
         # ranked contiene tutti i nodi, sia del dataset iniziale, sia quelli che comparivano solo come vicini di altri nodi.
         # graph contiene solo i nodi del dataset iniziale.
         # Faccio il join per recuperare la lista di vicini dal dataset iniziale
-        joined = ranked.leftOuterJoin(graph)
-        graph_ranked = joined.map(complete_graph)
+        # joined = ranked.leftOuterJoin(graph)
+        # joined = ranked.join(graph)
     result = graph_ranked.map(lambda x: (x[0], x[1][1]))
     result = result.sortBy(sort_by_rank)
     result.saveAsTextFile(output)
