@@ -8,7 +8,8 @@ def map_title(line):
         Function used to build the graph starting from the text file RDD. We search for a title tag (<title> * </title>)
         in the 'line' and we return it along with all its neighbors (if any). The neighbors are surrounded by double
         squared brackets.
-        From this function we obtain an RDD with the following elements' structure: (title, [n1,....,nk])
+        By providing this function to a map function,
+        we obtain an RDD with the following elements' structure: (title, [n1,....,nk]).
         :param line: a line of the input file (RDD element)
     """
     title = re.findall('<title>(.*?)</title>', line)
@@ -19,26 +20,30 @@ def map_title(line):
 
 def compute_contribute(node):
     """
-        Function used to compute the contributes that 'node' has to send to its neighbors
-        The returned RDD has the following structure: (title, contribute)
+        Function used to compute the contributes that 'node' has to send to its neighbors.
+        By providing this function to a flatMap function, we obtain an RDD with the
+        following elements' structure: (title, contribute)
+
         :param node: a node of the 'graph_ranked' RDD. It has the following structure: (title, ([n1,...,nk], rank))
     """
     # key
     title = node[0]
-    # value
+    # value ([n1,...,nk], rank)
     neighbors = node[1][0]
     rank = node[1][1]
 
     if len(neighbors) != 0:
-        contribute = rank / (len(neighbors))  # Contribute for each neighbor
+        contribute = rank / (len(neighbors))  # Contribute of the node
         contributes_list = ([contribute] * len(neighbors))  # We create a list of contributes, one for each neighbor
 
-        # We append an additional entry related to the node that we are considering
-        # This is done in order to cope (in the subsequent phases) with nodes that are not pointed by anyone
+        # We append an additional entry related to the node that we are considering and a contribute equal to zero.
+        # This is done in order to cope (in the subsequent phases) with nodes that are not pointed by anyone.
+        # Without this operations, these nodes would not be present in the contributes RDD, because they would
+        # not receive any contribute. By adding a contribute of zero we are not changing the rank of the node.
         contributes_list.append(0)
         neighbors.append(title)
 
-        # We use the zip() method to zip together the two RDD.
+        # We use the zip() method to zip together the two lists.
         # The resulting RDD has the structure '(title, contribute)'
         contributes_neighbors = zip(neighbors, contributes_list)
         return contributes_neighbors
@@ -51,7 +56,8 @@ def compute_contribute(node):
 def compute_contribute_sum(value1, value2):
     """
         Function used to compute the sum of all the contributes received by a node
-        The returned RDD has the following structure: (title, contributes_sum)
+        By providing this function to a reduceByKey function, we obtain an
+        RDD with the following element's structure: (title, contributes_sum)
         The pages that are not pointed by anyone will be returned along with a 'contributes_sum' value equal to 0
         :param value1: the first contribute
         :param value2: the second contribute
@@ -61,7 +67,8 @@ def compute_contribute_sum(value1, value2):
     if value1 is not None and value2 is not None:
         return value1 + value2
 
-    # These cases are possible only when a page of the dataset is not pointed by anyone. In this case we have a unique '(title, 0)' entry
+    # These cases are possible only when a page of the dataset is not pointed by anyone. In this case we have a
+    # unique '(title, 0)' entry
     if value1 is None:
         return value2
     if value2 is None:
@@ -71,7 +78,8 @@ def compute_contribute_sum(value1, value2):
 def compute_rank(x):
     """
         Function used to compute the page rank value
-        The returned RDD has the following 'value' field's structure: ([n1,...,nk], rank)
+        By providing this function to a mapValues function, we obtain an
+        RDD with the following 'value' field's structure: ([n1,...,nk], rank).
         :param x: value field of the 'joined' RDD. This parameter has the following structure: ([n1,...,nk], contributes_sum)
     """
     rank = (alpha / nodes_number) + (1 - alpha) * x[1]  # x[1] is the contributes_sum
@@ -113,8 +121,9 @@ if __name__ == "__main__":
     graph = text.map(map_title).cache()
 
     # We count the number of nodes in the graph
-    # We don't apply the count() method directly to the 'text' RDD because we want to be sure to count the actual number of nodes in the graph. Indeed, if
-    # we count the lines of the 'text' RDD there could be the case in which we consider as page a line without any <title> tag
+    # We don't apply the count() method directly to the 'text' RDD because we want to be sure to count the actual
+    # number of nodes in the graph. Indeed, if we count the lines of the 'text' RDD there could be the case in which
+    # we consider as page a line without any <title> tag
     nodes_number = graph.count()
 
     # We have to assign the initial rank to each node
@@ -133,8 +142,9 @@ if __name__ == "__main__":
         # For each node, we sum the received contributes
         contribute_sums = contributes.reduceByKey(compute_contribute_sum)
 
-        # We remove the pages that don't belong to the dataset (<title> tag not present) but are only pointed by other pages
-        # To do this we exploit the join() transformation between 'graph' and 'contribute_sums'. The first contains only the dataset's pages, while the latter contains also the pages that we want to remove
+        # We remove the pages that don't belong to the dataset (<title> tag not present) but are only pointed
+        # by other pages. To do this we exploit the join() transformation between 'graph' and 'contribute_sums'.
+        # The first contains only the dataset's pages, while the latter contains also the pages that we want to remove
         # The resulting RDD is in the form: (title, ([n1,...,nk], contributes_sum))
         joined = graph.join(contribute_sums)
 
