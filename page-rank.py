@@ -135,8 +135,11 @@ if __name__ == "__main__":
     # Start the iterations for the PageRank computation
     for i in range(iterations):
 
-        # We distribute the contributes of each node across the network
-        # We use the flatMap() method ....................
+        # We distribute the contributes of each node across the network.
+        # We use the flatMap() method since each node sends a contribute to all its
+        # neighbors. This process produces a list of tuples (neighbor, contribute) for each node.
+        # We want to flatten the result by merging all the generated lists into
+        # a single list.
         contributes = graph_ranked.flatMap(compute_contribute)
 
         # For each node, we sum the received contributes
